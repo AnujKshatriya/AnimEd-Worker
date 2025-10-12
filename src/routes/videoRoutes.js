@@ -1,14 +1,42 @@
 import express from "express";
+import { supabase } from "../config/supabaseClient.js";
 import { videoQueue } from "../jobs/queue.js";
 
 const router = express.Router();
 
-router.post("/generate-video", async (req, res) => {
-  const { topic } = req.body;
-  if (!topic) return res.status(400).json({ error: "Topic is required" });
+// POST /api/videos/generate
+router.post("/generate", async (req, res) => {
+  try {
+    const { topic, fileUrl } = req.body;
 
-  const job = await videoQueue.add("generate-video", { topic });
-  return res.json({ jobId: job.id, message: "Video generation started" });
+    if (!topic && !fileUrl) {
+      return res.status(400).json({ error: "Either topic or fileUrl is required" });
+    }
+
+    // 1️⃣ Create DB record
+    const { data: video, error } = await supabase
+      .from("videos")
+      .insert([{ topic, file_url: fileUrl, status: "queued" }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // 2️⃣ Add job to queue
+    await videoQueue.add("generate", {
+      videoId: video.id,
+      topic,
+      fileUrl,
+    });
+
+    res.json({
+      message: "🎬 Video generation started",
+      videoId: video.id,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;

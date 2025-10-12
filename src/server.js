@@ -8,7 +8,7 @@ const app = express();
 app.use(express.json());
 
 //API Routes
-app.get("/", (req, res) => res.send("🎥 Animed Backend Running!"));
+app.get("/", (req, res) => res.send("🎥 AnimEd Backend Running!"));
 app.use("/api/videos", videoRoutes);
 
 const PORT = process.env.PORT || 5000;
