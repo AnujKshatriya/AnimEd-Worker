@@ -2,7 +2,7 @@ import { Worker } from "bullmq";
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
-import { supabase } from "../config/supabaseClient.js";
+import { supabase } from "../config/supabase.js";
 import { redisConnection } from "../config/redis.js";
 
 export const worker = new Worker(
