@@ -6,24 +6,22 @@ import { supabase } from "../config/supabase.js";
 import { redisConnection } from "../config/redis.js";
 
 export const worker = new Worker(
-  "video-generation",
+  "videoQueue",
   async (job) => {
-    const { videoId, topic, fileUrl } = job.data;
+    console.log(1);
+    const { videoId, topic, fileUrl, user_id } = job.data;
     console.log(`🎬 Worker started for Job: ${videoId}`);
 
-    // Update job status → processing
     await supabase
       .from("videos")
       .update({ status: "processing" })
       .eq("id", videoId);
 
-    // Ensure tmp folder exists (if your python writes temp files)
     const tempDir = path.join(process.cwd(), "tmp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 
     return new Promise((resolve, reject) => {
-      // 🐍 Spawn Python process (pass both topic and fileUrl)
-      const args = ["python/main.py", videoId, topic || "", fileUrl || ""];
+      const args = ["python_worker/main.py", videoId, topic || "", fileUrl || ""];
       const python = spawn("python3", args, { cwd: process.cwd() });
 
       let logs = "";
@@ -42,26 +40,55 @@ export const worker = new Worker(
 
       python.on("close", async (code) => {
         try {
-          // Remove tmp folder (cleanup)
           if (fs.existsSync(tempDir)) {
             fs.rmSync(tempDir, { recursive: true, force: true });
             console.log("🧹 Cleaned up temp files");
           }
 
           if (code === 0) {
-            // Extract uploaded URL (Python prints at end)
-            const match = logs.match(/✅ Upload complete: (.+)/);
+            const match = logs.match(/Upload complete: (.+)/);
             const videoUrl = match ? match[1].trim() : null;
 
+            // 1️⃣ Update video record
             await supabase
               .from("videos")
               .update({
                 status: "completed",
-                video_url: videoUrl,
+                url: videoUrl,
                 logs,
                 updated_at: new Date(),
               })
               .eq("id", videoId);
+
+            // 2️⃣ Add this videoId to user's video list
+            const { data: existingData, error: fetchError } = await supabase
+              .from("user_videos")
+              .select("video_ids")
+              .eq("user_id", user_id)
+              .single();
+
+            if (fetchError && fetchError.code !== "PGRST116") {
+              console.error("❌ Error fetching user_videos:", fetchError);
+            } else {
+              const existingVideos = existingData?.video_ids || [];
+
+              const updatedVideos = Array.isArray(existingVideos)
+                ? [...new Set([...existingVideos, videoId])] // avoid duplicates
+                : [videoId];
+
+              const { error: updateError } = await supabase
+                .from("user_videos")
+                .upsert(
+                  { user_id, video_ids: updatedVideos },
+                  { onConflict: "user_id" }
+                );
+
+              if (updateError) {
+                console.error("❌ Error updating user_videos:", updateError);
+              } else {
+                console.log(`🎥 Added video ${videoId} to user ${user_id}`);
+              }
+            }
 
             console.log(`✅ Job ${videoId} completed successfully!`);
             resolve();

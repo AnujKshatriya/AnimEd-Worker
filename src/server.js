@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -8,7 +9,11 @@ import { worker } from "./jobs/worker.js"; // start worker
 const app = express();
 app.use(express.json());
 
-
+app.use(cors({
+  origin: 'http://localhost:8080', // frontend origin
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  credentials: true
+}));
 
 //API Routes
 app.get("/", (req, res) => res.send("🎥 AnimEd Backend Running!"));
