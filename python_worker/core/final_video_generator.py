@@ -37,9 +37,11 @@ def generate_final_video(job_dir:str):
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         if result.returncode == 0:
-            print(f"🎞️ Final video ready -> {final_video}")
+            return final_video
         else:
             print("❌ FFmpeg merge failed. Error log:")
             print(result.stderr.decode())
+            return None
     else:
         print("❌ No valid scene files found. Nothing to merge.")
+        return None
