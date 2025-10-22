@@ -7,7 +7,7 @@ const router = express.Router();
 // POST /api/videos/generate
 router.post("/generate", async (req, res) => {
   try {
-    const { topic, fileUrl } = req.body;
+    const { topic, fileUrl,user_id } = req.body;
 
     if (!topic && !fileUrl) {
       return res.status(400).json({ error: "Either topic or fileUrl is required" });
@@ -16,7 +16,7 @@ router.post("/generate", async (req, res) => {
     // 1️⃣ Create DB record
     const { data: video, error } = await supabase
       .from("videos")
-      .insert([{ topic, file_url: fileUrl, status: "queued" }])
+      .insert([{ user_id,topic, file_url: fileUrl, status: "queued" }])
       .select()
       .single();
 
@@ -27,6 +27,7 @@ router.post("/generate", async (req, res) => {
       videoId: video.id,
       topic,
       fileUrl,
+      user_id
     });
 
     res.json({
