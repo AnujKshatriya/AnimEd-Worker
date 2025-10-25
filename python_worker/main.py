@@ -33,11 +33,11 @@ def main(job_id: str, topic: str, localFilePath: str = None):
     # ---------------- 4: Manim Code Generation ----------------
     generate_all_scenes(scenes, job_dir)
 
-    # ---------------- 5: Manim Video Generation (limit to 3 scenes for testing) ----------------
-    generate_videos_from_scenes(scenes, job_dir, max_scenes=3)
+    # ---------------- 5: Manim Video Generation ----------------
+    generate_videos_from_scenes(scenes, job_dir)
 
-    # ---------------- 6: Merge Video + Audio (limit to 3 scenes for testing) ----------------
-    merge_all_scenes(scenes, job_dir, max_scenes=3)
+    # ---------------- 6: Merge Video + Audio ----------------
+    merge_all_scenes(scenes, job_dir)
 
     # ---------------- 7: Final Compilation ----------------
     generate_final_video(job_dir)
