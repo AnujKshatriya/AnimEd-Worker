@@ -1,5 +1,5 @@
 import express from "express";
-import { worker } from "./worker.js"; // just import so it runs
+import { worker } from "./jobs/worker.js"; // just import so it runs
 
 const app = express();
 app.get("/", (req, res) => res.send("Worker is running ✅"));

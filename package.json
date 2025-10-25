@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start:server": "node src/server.js",
-    "start:worker": "node src/jobs/worker.js"
+    "start:worker": "node src/jobs/worker.js",
+    "start:workerserver": "node src/worker_server.js"
   },
   "keywords": [],
   "author": "",
