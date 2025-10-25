@@ -1,31 +1,34 @@
-# Base image
-FROM node:22-bullseye
+FROM python:3.10.11-bullseye
+
+# Install Node.js 22
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs
 
 WORKDIR /app
 
-# Install Node dependencies
+# Copy Node packages
 COPY package*.json ./
 RUN npm install
 
-# Copy JS source
+# Copy source
 COPY src/ ./src/
-
-# Copy Python worker
 COPY python_worker/ ./python_worker/
 
-# Install system + Python dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    python3 python3-pip ffmpeg build-essential pkg-config \
+    ffmpeg build-essential pkg-config \
     libfreetype6-dev libfontconfig1-dev libcairo2-dev \
     libpango1.0-dev libglib2.0-dev libharfbuzz-dev \
     libffi-dev libssl-dev zlib1g-dev libjpeg-dev libpng-dev \
     texlive texlive-latex-extra texlive-fonts-extra texlive-fonts-recommended \
-    dvipng ghostscript && \
-    pip install --upgrade pip && \
-    pip install -r python_worker/requirements.txt
+    dvipng ghostscript
 
-# Optional: expose port for health check
+# Upgrade pip and install Python dependencies
+RUN pip install --upgrade pip
+RUN pip install -r python_worker/requirements.txt
+
+# Expose port
 EXPOSE 3000
 
-# Start worker server
+# Entrypoint
 CMD ["node", "src/worker_server.js"]
