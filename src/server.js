@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 
 app.use(cors({
-  origin: 'http://localhost:8080', // frontend origin
+  origin: process.env.FRONTEND_URL, // frontend origin
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   credentials: true
 }));
