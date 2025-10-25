@@ -5,7 +5,8 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "dev": "node src/server.js"
+    "start:server": "node src/server.js",
+    "start:worker": "node src/jobs/worker.js"
   },
   "keywords": [],
   "author": "",

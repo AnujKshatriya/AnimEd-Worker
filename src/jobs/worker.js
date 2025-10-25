@@ -1,14 +1,63 @@
 import { Worker } from "bullmq";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import fs from "fs";
+import axios from "axios";
 import path from "path";
 import { supabase } from "../config/supabase.js";
 import { redisConnection } from "../config/redis.js";
 
+// Utility to download any file to local outputDir
+async function downloadFile(fileUrl, destPath) {
+  try {
+    const writer = fs.createWriteStream(destPath);
+    const response = await axios({
+      url: fileUrl,
+      method: "GET",
+      responseType: "stream",
+    });
+    response.data.pipe(writer);
+    return new Promise((resolve, reject) => {
+      writer.on("finish", resolve);
+      writer.on("error", reject);
+    });
+  } catch (err) {
+    console.error("❌ Failed to download file:", err);
+  }
+}
+
+// Utility to get Python Executable Environment for processing
+function getPythonExecutable() {
+  try {
+    const cwd = process.cwd();
+    const venvWin = path.join(cwd, "python_worker", "venv", "Scripts", "python.exe");
+    const venvUnix = path.join(cwd, "python_worker", "venv", "bin", "python");
+
+    console.log("🔍 Checking Python paths:");
+    console.log(" - Windows venv path:", venvWin, fs.existsSync(venvWin));
+    console.log(" - Unix venv path:", venvUnix, fs.existsSync(venvUnix));
+
+    if (process.platform === "win32" && fs.existsSync(venvWin)) {
+      return venvWin;
+    } else if (fs.existsSync(venvUnix)) {
+      return venvUnix;
+    }
+
+    console.warn(`⚠️ Something wrong in venv path ${venvWin}`);
+    try {
+      execSync("python3 --version", { stdio: "ignore" });
+      return "python3";
+    } catch {
+      return "python";
+    }
+  } catch (err) {
+    console.error("❌ Error detecting Python executable:", err);
+    return "python";
+  }
+}
+
 export const worker = new Worker(
   "videoQueue",
   async (job) => {
-    console.log(1);
     const { videoId, topic, fileUrl, user_id } = job.data;
     console.log(`🎬 Worker started for Job: ${videoId}`);
 
@@ -17,12 +66,26 @@ export const worker = new Worker(
       .update({ status: "processing" })
       .eq("id", videoId);
 
-    const tempDir = path.join(process.cwd(), "tmp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+    const outputDir = path.join(process.cwd(), "outputs", videoId);
+    fs.mkdirSync(outputDir, { recursive: true });
+    console.log("📂 Output directory for all content generation -> ", outputDir);
+
+    // 1️⃣ Download PDF / notes
+    let localFilePath = null;
+    if (fileUrl) {
+      const fileName = path.basename(fileUrl).split("?")[0];
+      localFilePath = path.join(outputDir, fileName);
+      console.log("⬇️ Downloading file to:", localFilePath);
+      await downloadFile(fileUrl, localFilePath);
+    }
+    console.log("Notes File Path ->", localFilePath)
 
     return new Promise((resolve, reject) => {
-      const args = ["python_worker/main.py", videoId, topic || "", fileUrl || ""];
-      const python = spawn("python3", args, { cwd: process.cwd() });
+      const pythonExecutable = getPythonExecutable();
+      const args = ["python_worker/main.py", videoId, topic || "", localFilePath || ""];
+      console.log(`🐍 Using Python executable: ${pythonExecutable}`);
+
+      const python = spawn(pythonExecutable, args, { cwd: process.cwd() });
 
       let logs = "";
 
@@ -39,17 +102,39 @@ export const worker = new Worker(
       });
 
       python.on("close", async (code) => {
+        const finalVideoPath = path.join(outputDir, "final_output.mp4");
+        let videoUrl = null;
+
         try {
-          if (fs.existsSync(tempDir)) {
-            fs.rmSync(tempDir, { recursive: true, force: true });
-            console.log("🧹 Cleaned up temp files");
-          }
-
           if (code === 0) {
-            const match = logs.match(/Upload complete: (.+)/);
-            const videoUrl = match ? match[1].trim() : null;
+            if (fs.existsSync(finalVideoPath)) {
+              console.log(`📤 Uploading final video to Supabase: ${finalVideoPath}`);
 
-            // 1️⃣ Update video record
+              const fileBuffer = fs.readFileSync(finalVideoPath);
+              const supabasePath = `videos/${videoId}.mp4`;
+
+              const { data, error } = await supabase.storage
+                .from("videos")
+                .upload(supabasePath, fileBuffer, {
+                  upsert: true,
+                  contentType: "video/mp4",
+                });
+
+              if (error) {
+                console.error("❌ Error uploading video:", error.message);
+              } else {
+                const { data: { publicUrl } } = supabase.storage
+                  .from("videos")
+                  .getPublicUrl(supabasePath);
+
+                videoUrl = publicUrl;
+                console.log(`✅ Uploaded to Supabase: ${videoUrl}`);
+              }
+            } else {
+              console.warn("⚠️ Final video not found, skipping upload.");
+            }
+
+            // ✅ Update video status to completed
             await supabase
               .from("videos")
               .update({
@@ -60,7 +145,7 @@ export const worker = new Worker(
               })
               .eq("id", videoId);
 
-            // 2️⃣ Add this videoId to user's video list
+            // ✅ Add this video to user_videos
             const { data: existingData, error: fetchError } = await supabase
               .from("user_videos")
               .select("video_ids")
@@ -71,9 +156,8 @@ export const worker = new Worker(
               console.error("❌ Error fetching user_videos:", fetchError);
             } else {
               const existingVideos = existingData?.video_ids || [];
-
               const updatedVideos = Array.isArray(existingVideos)
-                ? [...new Set([...existingVideos, videoId])] // avoid duplicates
+                ? [...new Set([...existingVideos, videoId])]
                 : [videoId];
 
               const { error: updateError } = await supabase
@@ -93,6 +177,7 @@ export const worker = new Worker(
             console.log(`✅ Job ${videoId} completed successfully!`);
             resolve();
           } else {
+            // ❌ Update status → failed
             await supabase
               .from("videos")
               .update({
@@ -104,6 +189,12 @@ export const worker = new Worker(
 
             console.error(`❌ Job ${videoId} failed`);
             reject(new Error(`Worker failed with exit code ${code}`));
+          }
+
+          // 🧹 Clean up video folder after process (success or failure)
+          if (fs.existsSync(outputDir)) {
+            fs.rmSync(outputDir, { recursive: true, force: true });
+            console.log(`🧹 Cleaned up output folder for video ${videoId}`);
           }
         } catch (cleanupErr) {
           console.error("Cleanup error:", cleanupErr);

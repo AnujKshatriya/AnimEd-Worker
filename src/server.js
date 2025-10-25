@@ -4,7 +4,6 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import videoRoutes from "./routes/videoRoutes.js";
-import { worker } from "./jobs/worker.js"; // start worker
 
 const app = express();
 app.use(express.json());
