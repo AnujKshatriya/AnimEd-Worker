@@ -27,16 +27,16 @@ def main(job_id: str, topic: str, localFilePath: str = None):
     # ---------------- 2: Scene Splitting ----------------
     scenes = split_into_scenes(script)
 
-    # ---------------- 3: Audio Generation ----------------
+    # ---------------- 3: Audio Generation for 3 scenes ----------------
     generate_audio(scenes, job_dir)
 
-    # ---------------- 4: Manim Code Generation ----------------
+    # ---------------- 4: Manim Code Generation for 3 scenes ----------------
     generate_all_scenes(scenes, job_dir)
 
-    # ---------------- 5: Manim Video Generation ----------------
+    # ---------------- 5: Manim Video Generation for 3 scenes ----------------
     generate_videos_from_scenes(scenes, job_dir)
 
-    # ---------------- 6: Merge Video + Audio ----------------
+    # ---------------- 6: Merge Video + Audio for 3 scenes ----------------
     merge_all_scenes(scenes, job_dir)
 
     # ---------------- 7: Final Compilation ----------------

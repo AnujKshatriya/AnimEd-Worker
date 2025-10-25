@@ -6,7 +6,7 @@ def generate_audio(scenes : str, job_dir : str):
 
     os.makedirs(f"{job_dir}/audio", exist_ok=True)
 
-    for scene in scenes['scenes']:
+    for scene in scenes['scenes'][:3]:
         text = scene["text"]
         scene_id = scene["id"]
 

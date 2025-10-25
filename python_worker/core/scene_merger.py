@@ -5,7 +5,7 @@ def merge_all_scenes(scenes:str, job_dir:str):
 
     os.makedirs(f"{job_dir}/final_scenes", exist_ok=True)
 
-    for scene in scenes['scenes']:
+    for scene in scenes['scenes'][:3]:
         scene_id = scene["id"]
 
         video_path = os.path.join(job_dir, "videos", f"scene{scene_id}", "480p15", f"scene{scene_id}.mp4")
