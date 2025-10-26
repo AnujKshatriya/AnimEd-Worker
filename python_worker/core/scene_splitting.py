@@ -60,32 +60,30 @@ def split_into_scenes(script: str) -> dict:
     print("🔎 Raw model output (first 300 chars):\n", raw_text[:300])
 
     # --- Cleanup for Markdown Fencing ---
+    # Removes leading/trailing ```json, ```, etc.
     raw_text = re.sub(r"^```[a-zA-Z]*", "", raw_text)
     raw_text = re.sub(r"```$", "", raw_text).strip()
 
+    # Finds and isolates the outermost JSON object {}
     match = re.search(r"\{.*\}", raw_text, re.DOTALL)
     if match:
         raw_text = match.group(0)
 
-    # --- NEW ROBUSTNESS FIX: Backslash Sanitization ---
-    # This addresses the "Invalid \escape" error by replacing any single backslash
-    # that is NOT already part of a valid JSON escape sequence (like \n, \t, or \\).
-    # It replaces single backslashes with double backslashes (\\).
-    # The regex r'\\(?!["\\/bfnrtu])' finds a backslash only if it's NOT followed
-    # by a character that makes it a valid JSON escape sequence.
-    # Note: We must first un-escape the raw_text to correctly apply this fix.
-    raw_text = raw_text.encode('latin1').decode('unicode_escape')
-    raw_text = re.sub(r'\\', r'\\\\', raw_text)
+    # --- ROBUSTNESS FIX: Backslash Sanitization (Safe Version) ---
+    # This addresses the original "Invalid \escape" error by ensuring all single backslashes
+    # are correctly escaped for JSON, but it AVOIDS the problematic encode/decode.
+    # It replaces all single backslashes with double backslashes (\\).
+    # This might double-escape some already-escaped characters, but it's the safest general fix.
+    raw_text = raw_text.replace('\\', '\\\\')
+
+    # Due to the aggressive backslash fix, we need to handle potential over-escaping of quotes
+    # in the text content by parsing and immediately re-stringifying the JSON later if it fails.
     
-    # After re-escaping the problematic backslashes, we must check for extra quotes
-    # that might have been introduced during the process and remove them if they
-    # surround the entire string.
+    # Clean up cases where the LLM wrapped the JSON in extra quotes after other cleanup
+    raw_text = raw_text.strip()
     if raw_text.startswith('"') and raw_text.endswith('"'):
          raw_text = raw_text[1:-1]
-         
-    # Final check: remove leading/trailing double quotes if they were added due to the decoding/encoding step
-    raw_text = raw_text.strip()
-    # ----------------------------------------------------
+    # ------------------------------------------------------------
 
     try:
         scenes = json.loads(raw_text)
