@@ -6,13 +6,14 @@ dotenv.config();
 import videoRoutes from "./routes/videoRoutes.js";
 
 const app = express();
-app.use(express.json());
 
+console.log("frontend url ",process.env.FRONTEND_URL)
 app.use(cors({
   origin: process.env.FRONTEND_URL, // frontend origin
-  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   credentials: true
 }));
+
+app.use(express.json());
 
 //API Routes
 app.get("/", (req, res) => res.send("🎥 AnimEd Backend Running!"));
