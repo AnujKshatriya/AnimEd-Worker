@@ -5,9 +5,7 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "start:server": "node src/server.js",
-    "start:worker": "node src/jobs/worker.js",
-    "start:workerserver": "node src/worker_server.js"
+    "start:worker": "node src/jobs/worker.js"
   },
   "keywords": [],
   "author": "",

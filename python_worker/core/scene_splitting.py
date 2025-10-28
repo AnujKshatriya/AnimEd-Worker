@@ -52,20 +52,38 @@ def split_into_scenes(script: str) -> dict:
             """
             }
         ],
-        temperature=0.4,   # balances creativity with consistency
+        temperature=0.4,  # balances creativity with consistency
         max_tokens=2000
     )
 
     raw_text = completion.choices[0].message.content.strip()
     print("🔎 Raw model output (first 300 chars):\n", raw_text[:300])
 
-    # --- Cleanup ---
+    # --- Cleanup for Markdown Fencing ---
+    # Removes leading/trailing ```json, ```, etc.
     raw_text = re.sub(r"^```[a-zA-Z]*", "", raw_text)
     raw_text = re.sub(r"```$", "", raw_text).strip()
 
+    # Finds and isolates the outermost JSON object {}
     match = re.search(r"\{.*\}", raw_text, re.DOTALL)
     if match:
         raw_text = match.group(0)
+
+    # --- ROBUSTNESS FIX: Backslash Sanitization (Safe Version) ---
+    # This addresses the original "Invalid \escape" error by ensuring all single backslashes
+    # are correctly escaped for JSON, but it AVOIDS the problematic encode/decode.
+    # It replaces all single backslashes with double backslashes (\\).
+    # This might double-escape some already-escaped characters, but it's the safest general fix.
+    raw_text = raw_text.replace('\\', '\\\\')
+
+    # Due to the aggressive backslash fix, we need to handle potential over-escaping of quotes
+    # in the text content by parsing and immediately re-stringifying the JSON later if it fails.
+    
+    # Clean up cases where the LLM wrapped the JSON in extra quotes after other cleanup
+    raw_text = raw_text.strip()
+    if raw_text.startswith('"') and raw_text.endswith('"'):
+         raw_text = raw_text[1:-1]
+    # ------------------------------------------------------------
 
     try:
         scenes = json.loads(raw_text)
