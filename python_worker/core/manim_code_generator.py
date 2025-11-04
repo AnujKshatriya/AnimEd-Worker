@@ -132,7 +132,7 @@ def generate_all_scenes(scenes, job_dir):
     """Main driver function with fallback logic."""
     os.makedirs(f"{job_dir}/code", exist_ok=True)
 
-    for scene in scenes['scenes'][:3]:
+    for scene in scenes['scenes']:
         path = f"{job_dir}/code/scene{int(scene['id'])}.py"
         scene_id = scene["id"]
         print(f"\n🎬 Generating Scene {scene_id}...")

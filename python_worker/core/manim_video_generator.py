@@ -4,7 +4,7 @@ import shutil
 import sys
 
 def generate_videos_from_scenes(scenes:str, job_dir:str):
-    for scene in scenes['scenes'][:3]:
+    for scene in scenes['scenes']:
         scene_id = scene['id']
         script_path = os.path.join(job_dir, "code", f"scene{scene_id}.py")
         class_name = f"Scene{scene_id}"
