@@ -104,42 +104,72 @@ export const worker = new Worker(
       python.on("close", async (code) => {
         const finalVideoPath = path.join(outputDir, "final_output.mp4");
         let videoUrl = null;
+        let scriptUrl = null;
+
+        // 🔍 Detect script path printed by Python: FINAL_SCRIPT_PATH::<path>
+        const scriptMatch = logs.match(/FINAL_SCRIPT_PATH::(.*)/);
+        const finalScriptPath = scriptMatch ? scriptMatch[1].trim() : null;
 
         try {
           if (code === 0) {
+            // ✅ Upload final video if exists
             if (fs.existsSync(finalVideoPath)) {
               console.log(`📤 Uploading final video to Supabase: ${finalVideoPath}`);
-
               const fileBuffer = fs.readFileSync(finalVideoPath);
               const supabasePath = `videos/${videoId}.mp4`;
 
-              const { data, error } = await supabase.storage
+              const { error: videoError } = await supabase.storage
                 .from("videos")
                 .upload(supabasePath, fileBuffer, {
                   upsert: true,
                   contentType: "video/mp4",
                 });
 
-              if (error) {
-                console.error("❌ Error uploading video:", error.message);
+              if (videoError) {
+                console.error("❌ Error uploading video:", videoError.message);
               } else {
                 const { data: { publicUrl } } = supabase.storage
                   .from("videos")
                   .getPublicUrl(supabasePath);
-
                 videoUrl = publicUrl;
-                console.log(`✅ Uploaded to Supabase: ${videoUrl}`);
+                console.log(`✅ Uploaded video: ${videoUrl}`);
               }
             } else {
               console.warn("⚠️ Final video not found, skipping upload.");
             }
 
-            // ✅ Update video status to completed
+            // ✅ Upload script if exists
+            if (finalScriptPath && fs.existsSync(finalScriptPath)) {
+              console.log(`📤 Uploading final script: ${finalScriptPath}`);
+              const fileBuffer = fs.readFileSync(finalScriptPath);
+              const supabaseScriptPath = `scripts/${videoId}.txt`;
+
+              const { error: scriptError } = await supabase.storage
+                .from("scripts")
+                .upload(supabaseScriptPath, fileBuffer, {
+                  upsert: true,
+                  contentType: "text/plain",
+                });
+
+              if (scriptError) {
+                console.error("❌ Error uploading script:", scriptError.message);
+              } else {
+                const { data: { publicUrl } } = supabase.storage
+                  .from("scripts")
+                  .getPublicUrl(supabaseScriptPath);
+                scriptUrl = publicUrl;
+                console.log(`✅ Uploaded script: ${scriptUrl}`);
+              }
+            } else {
+              console.warn("⚠️ Script file not found or not printed by Python.");
+            }
+
             await supabase
               .from("videos")
               .update({
                 status: "completed",
                 url: videoUrl,
+                script_url: scriptUrl,
                 logs,
                 updated_at: new Date(),
               })

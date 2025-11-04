@@ -22,7 +22,7 @@ def main(job_id: str, topic: str, localFilePath: str = None):
     os.makedirs(job_dir, exist_ok=True)
 
     # ---------------- 1: Script Generation ----------------
-    script = process_input(topic=topic, notes_file=localFilePath if localFilePath else None)
+    script = process_input(topic=topic, notes_file=localFilePath if localFilePath else None,job_dir=job_dir)
 
     # ---------------- 2: Scene Splitting ----------------
     scenes = split_into_scenes(script)

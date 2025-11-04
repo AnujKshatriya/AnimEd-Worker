@@ -180,7 +180,7 @@ def generate_script(topic_or_text: str, is_notes: bool = False) -> str:
     
 
 # ----------------- Input Processing Pipeline -----------------
-def process_input(topic: str = None, notes_file: str = None) -> str:
+def process_input(topic: str = None, notes_file: str = None, job_dir: str = None) -> str:
     """
     Handles both:
     1. Notes file -> extract -> summarize -> generate script
@@ -194,5 +194,14 @@ def process_input(topic: str = None, notes_file: str = None) -> str:
     else:
         print("No notes provided, using topic only...")
         script = generate_script(topic)
+    # ✅ Save script as plain text file
+    if job_dir:
+        os.makedirs(job_dir, exist_ok=True)
+        script_path = os.path.join(job_dir, "final_script.txt")
+        with open(script_path, "w", encoding="utf-8") as f:
+            f.write(script)
+        print(f"📝 Script saved at {script_path}")
 
+        # Print path so Node.js can catch it
+        print(f"FINAL_SCRIPT_PATH::{script_path}")
     return script
