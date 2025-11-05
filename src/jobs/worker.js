@@ -138,7 +138,6 @@ export const worker = new Worker(
               console.warn("⚠️ Final video not found, skipping upload.");
             }
 
-            // ✅ Upload script if exists
             if (finalScriptPath && fs.existsSync(finalScriptPath)) {
               console.log(`📤 Uploading final script: ${finalScriptPath}`);
               const fileBuffer = fs.readFileSync(finalScriptPath);
@@ -160,77 +159,106 @@ export const worker = new Worker(
                 scriptUrl = publicUrl;
                 console.log(`✅ Uploaded script: ${scriptUrl}`);
               }
-            } else {
-              console.warn("⚠️ Script file not found or not printed by Python.");
-            }
 
-            await supabase
-              .from("videos")
-              .update({
-                status: "completed",
-                url: videoUrl,
-                script_url: scriptUrl,
-                logs,
-                updated_at: new Date(),
-              })
-              .eq("id", videoId);
+              // ✅ Upload embedding if exists
+              const embeddingPath = path.join(outputDir, "script_embedding.json");
+              if (fs.existsSync(embeddingPath)) {
+                console.log(`📤 Uploading embedding file: ${embeddingPath}`);
+                const embeddingBuffer = fs.readFileSync(embeddingPath);
+                const supabaseEmbeddingPath = `embeddings/${videoId}.json`;
 
-            // ✅ Add this video to user_videos
-            const { data: existingData, error: fetchError } = await supabase
-              .from("user_videos")
-              .select("video_ids")
-              .eq("user_id", user_id)
-              .single();
+                // 🧠 Read embedding and store it as a vector in database
+                const embeddingData = JSON.parse(fs.readFileSync(embeddingPath, "utf-8"));
 
-            if (fetchError && fetchError.code !== "PGRST116") {
-              console.error("❌ Error fetching user_videos:", fetchError);
-            } else {
-              const existingVideos = existingData?.video_ids || [];
-              const updatedVideos = Array.isArray(existingVideos)
-                ? [...new Set([...existingVideos, videoId])]
-                : [videoId];
+                if (Array.isArray(embeddingData)) {
+                  console.log("🧩 Storing embedding vector in database...");
 
-              const { error: updateError } = await supabase
-                .from("user_videos")
-                .upsert(
-                  { user_id, video_ids: updatedVideos },
-                  { onConflict: "user_id" }
-                );
+                  const { error: embedError } = await supabase
+                    .from("videos") // or "video_embeddings"
+                    .update({ embedding: embeddingData }) // direct numeric array
+                    .eq("id", videoId);
 
-              if (updateError) {
-                console.error("❌ Error updating user_videos:", updateError);
-              } else {
-                console.log(`🎥 Added video ${videoId} to user ${user_id}`);
+                  if (embedError) {
+                    console.error("❌ Error inserting embedding vector:", embedError);
+                  } else {
+                    console.log("✅ Embedding vector stored successfully in DB.");
+                  }
+                } else {
+                  console.warn("⚠️ Invalid embedding format — expected numeric array.");
+                }
+
               }
+
+
+              await supabase
+                .from("videos")
+                .update({
+                  status: "completed",
+                  url: videoUrl,
+                  script_url: scriptUrl,
+                  logs,
+                  updated_at: new Date(),
+                })
+                .eq("id", videoId);
+
+              // ✅ Add this video to user_videos
+              const { data: existingData, error: fetchError } = await supabase
+                .from("user_videos")
+                .select("video_ids")
+                .eq("user_id", user_id)
+                .single();
+
+              if (fetchError && fetchError.code !== "PGRST116") {
+                console.error("❌ Error fetching user_videos:", fetchError);
+              } else {
+                const existingVideos = existingData?.video_ids || [];
+                const updatedVideos = Array.isArray(existingVideos)
+                  ? [...new Set([...existingVideos, videoId])]
+                  : [videoId];
+
+                const { error: updateError } = await supabase
+                  .from("user_videos")
+                  .upsert(
+                    { user_id, video_ids: updatedVideos },
+                    { onConflict: "user_id" }
+                  );
+
+                if (updateError) {
+                  console.error("❌ Error updating user_videos:", updateError);
+                } else {
+                  console.log(`🎥 Added video ${videoId} to user ${user_id}`);
+                }
+              }
+
+              console.log(`✅ Job ${videoId} completed successfully!`);
+              resolve();
+            } else {
+              // ❌ Update status → failed
+              await supabase
+                .from("videos")
+                .update({
+                  status: "failed",
+                  logs,
+                  updated_at: new Date(),
+                })
+                .eq("id", videoId);
+
+              console.error(`❌ Job ${videoId} failed`);
+              reject(new Error(`Worker failed with exit code ${code}`));
             }
 
-            console.log(`✅ Job ${videoId} completed successfully!`);
-            resolve();
-          } else {
-            // ❌ Update status → failed
-            await supabase
-              .from("videos")
-              .update({
-                status: "failed",
-                logs,
-                updated_at: new Date(),
-              })
-              .eq("id", videoId);
-
-            console.error(`❌ Job ${videoId} failed`);
-            reject(new Error(`Worker failed with exit code ${code}`));
-          }
-
-          // 🧹 Clean up video folder after process (success or failure)
-          if (fs.existsSync(outputDir)) {
-            fs.rmSync(outputDir, { recursive: true, force: true });
-            console.log(`🧹 Cleaned up output folder for video ${videoId}`);
-          }
-        } catch (cleanupErr) {
-          console.error("Cleanup error:", cleanupErr);
-          reject(cleanupErr);
+            // 🧹 Clean up video folder after process (success or failure)
+            if (fs.existsSync(outputDir)) {
+              fs.rmSync(outputDir, { recursive: true, force: true });
+              console.log(`🧹 Cleaned up output folder for video ${videoId}`);
+            }
+          } 
         }
-      });
+        catch (cleanupErr) {
+            console.error("Cleanup error:", cleanupErr);
+            reject(cleanupErr);
+          };
+        });
     });
   },
   { connection: redisConnection }

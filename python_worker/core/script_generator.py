@@ -6,6 +6,10 @@ import fitz
 import docx
 import tiktoken
 from config import client
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
+embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # ----------------- Text Extraction -----------------
 def extract_text_from_file(file_path: str) -> str:
@@ -201,6 +205,18 @@ def process_input(topic: str = None, notes_file: str = None, job_dir: str = None
         with open(script_path, "w", encoding="utf-8") as f:
             f.write(script)
         print(f"📝 Script saved at {script_path}")
+
+        # 🧠 Create embedding for the full script
+        print("🔍 Generating embedding for script...")
+        script_embedding = embed_model.encode(script, convert_to_numpy=True)
+
+        # ✅ Save embedding as .json
+        embedding_path = os.path.join(job_dir, "script_embedding.json")
+        with open(embedding_path, "w", encoding="utf-8") as ef:
+            json.dump(script_embedding.tolist(), ef)
+
+        print(f"💾 Embedding saved at {embedding_path}")
+
 
         # Print path so Node.js can catch it
         print(f"FINAL_SCRIPT_PATH::{script_path}")
