@@ -80,6 +80,7 @@ export const worker = new Worker(
     }
     console.log("Notes File Path ->", localFilePath)
 
+    
     return new Promise((resolve, reject) => {
       const pythonExecutable = getPythonExecutable();
       const args = ["python_worker/main.py", videoId, topic || "", localFilePath || ""];
