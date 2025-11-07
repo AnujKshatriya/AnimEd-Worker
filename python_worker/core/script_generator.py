@@ -9,7 +9,7 @@ from config import client
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
-embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+embed_model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
 
 # ----------------- Text Extraction -----------------
 def extract_text_from_file(file_path: str) -> str:
