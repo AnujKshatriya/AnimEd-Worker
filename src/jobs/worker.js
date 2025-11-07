@@ -140,55 +140,55 @@ export const worker = new Worker(
             }
 
             if (finalScriptPath && fs.existsSync(finalScriptPath)) {
-              console.log(`📤 Uploading final script: ${finalScriptPath}`);
-              const fileBuffer = fs.readFileSync(finalScriptPath);
-              const supabaseScriptPath = `scripts/${videoId}.txt`;
+              // console.log(`📤 Uploading final script: ${finalScriptPath}`);
+              // const fileBuffer = fs.readFileSync(finalScriptPath);
+              // const supabaseScriptPath = `scripts/${videoId}.txt`;
 
-              const { error: scriptError } = await supabase.storage
-                .from("scripts")
-                .upload(supabaseScriptPath, fileBuffer, {
-                  upsert: true,
-                  contentType: "text/plain",
-                });
+              // const { error: scriptError } = await supabase.storage
+              //   .from("scripts")
+              //   .upload(supabaseScriptPath, fileBuffer, {
+              //     upsert: true,
+              //     contentType: "text/plain",
+              //   });
 
-              if (scriptError) {
-                console.error("❌ Error uploading script:", scriptError.message);
-              } else {
-                const { data: { publicUrl } } = supabase.storage
-                  .from("scripts")
-                  .getPublicUrl(supabaseScriptPath);
-                scriptUrl = publicUrl;
-                console.log(`✅ Uploaded script: ${scriptUrl}`);
-              }
+              // if (scriptError) {
+              //   console.error("❌ Error uploading script:", scriptError.message);
+              // } else {
+              //   const { data: { publicUrl } } = supabase.storage
+              //     .from("scripts")
+              //     .getPublicUrl(supabaseScriptPath);
+              //   scriptUrl = publicUrl;
+              //   console.log(`✅ Uploaded script: ${scriptUrl}`);
+              // }
 
-              // ✅ Upload embedding if exists
-              const embeddingPath = path.join(outputDir, "script_embedding.json");
-              if (fs.existsSync(embeddingPath)) {
-                console.log(`📤 Uploading embedding file: ${embeddingPath}`);
-                const embeddingBuffer = fs.readFileSync(embeddingPath);
-                const supabaseEmbeddingPath = `embeddings/${videoId}.json`;
+              // // ✅ Upload embedding if exists
+              // const embeddingPath = path.join(outputDir, "script_embedding.json");
+              // if (fs.existsSync(embeddingPath)) {
+              //   console.log(`📤 Uploading embedding file: ${embeddingPath}`);
+              //   const embeddingBuffer = fs.readFileSync(embeddingPath);
+              //   const supabaseEmbeddingPath = `embeddings/${videoId}.json`;
 
-                // 🧠 Read embedding and store it as a vector in database
-                const embeddingData = JSON.parse(fs.readFileSync(embeddingPath, "utf-8"));
+              //   // 🧠 Read embedding and store it as a vector in database
+              //   const embeddingData = JSON.parse(fs.readFileSync(embeddingPath, "utf-8"));
 
-                if (Array.isArray(embeddingData)) {
-                  console.log("🧩 Storing embedding vector in database...");
+              //   if (Array.isArray(embeddingData)) {
+              //     console.log("🧩 Storing embedding vector in database...");
 
-                  const { error: embedError } = await supabase
-                    .from("videos") // or "video_embeddings"
-                    .update({ embedding: embeddingData }) // direct numeric array
-                    .eq("id", videoId);
+              //     const { error: embedError } = await supabase
+              //       .from("videos") // or "video_embeddings"
+              //       .update({ embedding: embeddingData }) // direct numeric array
+              //       .eq("id", videoId);
 
-                  if (embedError) {
-                    console.error("❌ Error inserting embedding vector:", embedError);
-                  } else {
-                    console.log("✅ Embedding vector stored successfully in DB.");
-                  }
-                } else {
-                  console.warn("⚠️ Invalid embedding format — expected numeric array.");
-                }
+              //     if (embedError) {
+              //       console.error("❌ Error inserting embedding vector:", embedError);
+              //     } else {
+              //       console.log("✅ Embedding vector stored successfully in DB.");
+              //     }
+              //   } else {
+              //     console.warn("⚠️ Invalid embedding format — expected numeric array.");
+              //   }
 
-              }
+              // }
 
 
               await supabase
@@ -196,7 +196,6 @@ export const worker = new Worker(
                 .update({
                   status: "completed",
                   url: videoUrl,
-                  script_url: scriptUrl,
                   logs,
                   updated_at: new Date(),
                 })

@@ -5,18 +5,34 @@ import json
 import fitz
 import docx
 import tiktoken
-from config import client2
-from config import client
-from sentence_transformers import SentenceTransformer
 import numpy as np
+import re
+from sentence_transformers import SentenceTransformer
+from config import client2, client, supabase  # ✅ Make sure supabase client is imported from config
 
+# ----------------- Initialize Embedding Model -----------------
 embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+# ----------------- Chunking -----------------
+def chunk_text(text: str, max_chars: int = 1000) -> list:
+    """Split text into manageable chunks based on sentences."""
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    chunks, current = [], ""
+
+    for s in sentences:
+        if len(current) + len(s) < max_chars:
+            current += s + " "
+        else:
+            chunks.append(current.strip())
+            current = s + " "
+    if current.strip():
+        chunks.append(current.strip())
+    return chunks
+
 
 # ----------------- Text Extraction -----------------
 def extract_text_from_file(file_path: str) -> str:
-    """
-    Extracts text from PDF, DOCX, or TXT files.
-    """
+    """Extract text from PDF, DOCX, or TXT files."""
     if file_path.endswith(".pdf"):
         text = ""
         with fitz.open(file_path) as doc:
@@ -34,10 +50,12 @@ def extract_text_from_file(file_path: str) -> str:
     else:
         raise ValueError("Unsupported file format. Use PDF, DOCX, or TXT.")
 
+
 # ----------------- Token Counting -----------------
 def count_tokens(text: str, model: str = "gpt-4o-mini") -> int:
     enc = tiktoken.encoding_for_model(model)
     return len(enc.encode(text))
+
 
 # ----------------- Summarization -----------------
 def summarize_if_needed(text: str, max_tokens: int = 8000) -> str:
@@ -48,7 +66,7 @@ def summarize_if_needed(text: str, max_tokens: int = 8000) -> str:
         print("✅ Text size is safe, skipping summarization.")
         return text
 
-    if token_count > 25_000:
+    if token_count > 25000:
         raise ValueError(f"Document too large ({token_count} tokens). Please upload shorter text.")
 
     print("⚙️ Large document detected, summarizing in chunks...")
@@ -65,7 +83,7 @@ def summarize_if_needed(text: str, max_tokens: int = 8000) -> str:
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": "You are an expert academic summarizer."},
-                {"role": "user", "content": f"Summarize this educational text while keeping key formulas and concepts:\n\n{chunk}"}
+                {"role": "user", "content": f"Summarize this educational text keeping key formulas and concepts:\n\n{chunk}"}
             ],
             temperature=0.4,
             max_tokens=1500,
@@ -73,12 +91,11 @@ def summarize_if_needed(text: str, max_tokens: int = 8000) -> str:
         summaries.append(response.choices[0].message.content.strip())
 
     combined_summary = "\n".join(summaries)
-    # Final unification
     final_response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[
             {"role": "system", "content": "You are a concise educational summarizer."},
-            {"role": "user", "content": f"Combine and refine these summaries into one coherent version:\n\n{combined_summary}"}
+            {"role": "user", "content": f"Combine and refine these summaries:\n\n{combined_summary}"}
         ],
         temperature=0.4,
         max_tokens=4000,
@@ -87,6 +104,7 @@ def summarize_if_needed(text: str, max_tokens: int = 8000) -> str:
     final_summary = final_response.choices[0].message.content.strip()
     print("✅ Final summary ready.")
     return final_summary
+
 
 # ----------------- Script Generation -----------------
 def generate_script(topic_or_text: str, is_notes: bool = False) -> str:
@@ -184,24 +202,29 @@ Equation: "..."
 
     return completion.choices[0].message.content.strip()
 
-    
 
-# ----------------- Input Processing Pipeline -----------------
-def process_input(topic: str = None, notes_file: str = None, job_dir: str = None) -> str:
+
+# ----------------- Main Pipeline -----------------
+def process_input(video_id: str, topic: str = None, notes_file: str = None, job_dir: str = None):
     """
-    Handles both:
-    1. Notes file -> extract -> summarize -> generate script
-    2. Topic only -> generate script
+    Process flow:
+    1. Extract + Summarize (if notes)
+    2. Generate Script
+    3. Chunk + Generate Embeddings
+    4. Upload both script + embeddings to Supabase
     """
+    print(f"🚀 Starting script generation for video_id: {video_id}")
+
     if notes_file:
-        print("Processing uploaded notes...")
+        print("📘 Processing uploaded notes...")
         extracted_text = extract_text_from_file(notes_file)
         summarized_text = summarize_if_needed(extracted_text)
         script = generate_script(summarized_text, is_notes=True)
     else:
-        print("No notes provided, using topic only...")
+        print("🧠 Generating from topic only...")
         script = generate_script(topic)
-    # ✅ Save script as plain text file
+
+    # Save locally (optional)
     if job_dir:
         os.makedirs(job_dir, exist_ok=True)
         script_path = os.path.join(job_dir, "final_script.txt")
@@ -209,18 +232,50 @@ def process_input(topic: str = None, notes_file: str = None, job_dir: str = None
             f.write(script)
         print(f"📝 Script saved at {script_path}")
 
-        # 🧠 Create embedding for the full script
-        print("🔍 Generating embedding for script...")
-        script_embedding = embed_model.encode(script, convert_to_numpy=True)
+    # ----------------- Embedding Generation -----------------
+    print("🔍 Creating text chunks and embeddings...")
+    chunks = chunk_text(script, max_chars=1000)
+    chunk_embeddings = embed_model.encode(chunks, convert_to_numpy=True, normalize_embeddings=True)
 
-        # ✅ Save embedding as .json
-        embedding_path = os.path.join(job_dir, "script_embedding.json")
-        with open(embedding_path, "w", encoding="utf-8") as ef:
-            json.dump(script_embedding.tolist(), ef)
+    # ----------------- Upload to Supabase -----------------
+    print("⬆️ Uploading script and embeddings to Supabase...")
 
-        print(f"💾 Embedding saved at {embedding_path}")
+    # 1️⃣ Upload the script file to Supabase Storage
+    file_name = f"{video_id}_final_script.txt"
+    with open(os.path.join(job_dir, "final_script.txt"), "rb") as f:
+        file_bytes = f.read()
 
+    upload_response = supabase.storage.from_("scripts").upload(
+        path=file_name,
+        file=file_bytes,
+        file_options={"content-type": "text/plain", "x-upsert": "true"},
+    )
 
-        # Print path so Node.js can catch it
-        print(f"FINAL_SCRIPT_PATH::{script_path}")
+    if hasattr(upload_response, "error") and upload_response.error is not None:
+        print("❌ Failed to upload script to Supabase:", upload_response.error)
+    else:
+        print("✅ Script file uploaded to Supabase Storage bucket 'scripts'")
+    # 2️⃣ Generate public URL for the uploaded script
+    public_url = supabase.storage.from_("scripts").get_public_url(file_name)
+    print(f"🌐 Public URL: {public_url}")
+
+    # 3️⃣ Update 'videos' table with the public URL
+    supabase.table("videos").update({"script_url": public_url}).eq("id", video_id).execute()
+    print("✅ Video record updated with script URL")
+
+    # 2️⃣ Insert embeddings in a separate 'video_embeddings' table
+    embedding_records = [
+        {
+            "video_id": video_id,
+            "chunk_id": i,
+            "text": chunks[i],
+            "embedding": chunk_embeddings[i].tolist()
+        }
+        for i in range(len(chunks))
+    ]
+
+    supabase.table("video_embeddings").insert(embedding_records).execute()
+    print("✅ Successfully uploaded embeddings to Supabase.")
+
+    print(f"FINAL_SCRIPT_PATH::{os.path.join(job_dir, 'final_script.txt') if job_dir else 'in-memory'}")
     return script

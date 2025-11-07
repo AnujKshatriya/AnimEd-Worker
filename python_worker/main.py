@@ -17,30 +17,30 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 def main(job_id: str, topic: str, localFilePath: str = None):
     print(f"🚀 Starting job {job_id} | Topic: {topic}")
-
+    video_id=job_id
     job_dir = os.path.join(OUTPUT_DIR, job_id)
     os.makedirs(job_dir, exist_ok=True)
 
     # ---------------- 1: Script Generation ----------------
-    script = process_input(topic=topic, notes_file=localFilePath if localFilePath else None,job_dir=job_dir)
+    script = process_input(video_id=video_id,topic=topic, notes_file=localFilePath if localFilePath else None,job_dir=job_dir)
 
-    # ---------------- 2: Scene Splitting ----------------
-    scenes = split_into_scenes(script)
+    # # ---------------- 2: Scene Splitting ----------------
+    # scenes = split_into_scenes(script)
 
-    # ---------------- 3: Audio Generation for 3 scenes ----------------
-    generate_audio(scenes, job_dir)
+    # # ---------------- 3: Audio Generation for 3 scenes ----------------
+    # generate_audio(scenes, job_dir)
 
-    # ---------------- 4: Manim Code Generation for 3 scenes ----------------
-    generate_all_scenes(scenes, job_dir)
+    # # ---------------- 4: Manim Code Generation for 3 scenes ----------------
+    # generate_all_scenes(scenes, job_dir)
 
-    # ---------------- 5: Manim Video Generation for 3 scenes ----------------
-    generate_videos_from_scenes(scenes, job_dir)
+    # # ---------------- 5: Manim Video Generation for 3 scenes ----------------
+    # generate_videos_from_scenes(scenes, job_dir)
 
-    # ---------------- 6: Merge Video + Audio for 3 scenes ----------------
-    merge_all_scenes(scenes, job_dir)
+    # # ---------------- 6: Merge Video + Audio for 3 scenes ----------------
+    # merge_all_scenes(scenes, job_dir)
 
-    # ---------------- 7: Final Compilation ----------------
-    generate_final_video(job_dir)
+    # # ---------------- 7: Final Compilation ----------------
+    # generate_final_video(job_dir)
 
 
 if __name__ == "__main__":
