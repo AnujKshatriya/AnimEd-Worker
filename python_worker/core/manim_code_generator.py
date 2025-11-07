@@ -128,12 +128,12 @@ def validate_and_save(code, path):
         return False
 
 
-def generate_all_scenes(scenes, job_dir):
+def generate_all_scenes(topic, scenes):
     """Main driver function with fallback logic."""
-    os.makedirs(f"{job_dir}/code", exist_ok=True)
+    os.makedirs(topic, exist_ok=True)
 
     for scene in scenes['scenes']:
-        path = f"{job_dir}/code/scene{int(scene['id'])}.py"
+        path = f"{topic}/scene{int(scene['id'])}.py"
         scene_id = scene["id"]
         print(f"\n🎬 Generating Scene {scene_id}...")
 

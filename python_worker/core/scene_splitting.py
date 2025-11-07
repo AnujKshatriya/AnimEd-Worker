@@ -1,5 +1,5 @@
 import re, json
-from config import client
+from config import client2
 
 def split_into_scenes(script: str) -> dict:
     """
@@ -7,8 +7,8 @@ def split_into_scenes(script: str) -> dict:
     Ensures that the flow feels like a continuous explanation rather than isolated points.
     """
 
-    completion = client.chat.completions.create(
-        model="moonshotai/kimi-k2-instruct-0905",
+    completion = client2.chat.completions.create(
+        model="gpt-3.5-turbo",
         messages=[
             {
                 "role": "system",
@@ -22,68 +22,52 @@ def split_into_scenes(script: str) -> dict:
             {
                 "role": "user",
                 "content": f"""
-            Divide the following narration script into **at most 25 sequential scenes** suitable for animation in an educational video.
+Divide the following narration script into **at most 25 sequential scenes** suitable for animation in an educational video.
 
-            Guidelines:
-            - Each scene should explain one complete concept or step clearly, using 1–3 short sentences.
-            - Maintain logical and educational flow — the narration should feel continuous, not like isolated facts.
-            - Merge related points if necessary so that the total number of scenes does not exceed 25.
-            - Ensure that transitions between scenes sound natural and build upon each other.
-            - Cover all important points from the provided script.
-            - Assume total video length ≈ 300 seconds (≈10–12 sec per scene).
-            - The goal is to make students understand the topic smoothly from start to end.
+Guidelines:
+- Each scene should explain one complete concept or step clearly, using 1–3 short sentences.
+- Maintain logical and educational flow — the narration should feel continuous, not like isolated facts.
+- Merge related points if necessary so that the total number of scenes does not exceed 25.
+- Ensure that transitions between scenes sound natural and build upon each other.
+- Cover all important points from the provided script.
+- Assume total video length ≈ 300 seconds (≈10–12 sec per scene).
+- The goal is to make students understand the topic smoothly from start to end.
 
-            Return ONLY valid JSON in this format:
-            {{
-            "scenes": [
-                {{
-                "id": 1,
-                "text": "Scene 1 narration..."
-                }},
-                {{
-                "id": 2,
-                "text": "Scene 2 narration..."
-                }}
-            ]
-            }}
+Return ONLY valid JSON in this format:
+{{
+  "scenes": [
+    {{
+      "id": 1,
+      "text": "Scene 1 narration..."
+    }},
+    {{
+      "id": 2,
+      "text": "Scene 2 narration..."
+    }}
+  ]
+}}
 
-            Full Script:
-            {script}
-            """
+Inside scenes field there is id and text field, for the text field don't write scene x or slide no y, directly write the text.
+
+Full Script:
+{script}
+"""
             }
         ],
-        temperature=0.4,  # balances creativity with consistency
+        temperature=0.4,   # balances creativity with consistency
         max_tokens=2000
     )
 
     raw_text = completion.choices[0].message.content.strip()
     print("🔎 Raw model output (first 300 chars):\n", raw_text[:300])
 
-    # --- Cleanup for Markdown Fencing ---
-    # Removes leading/trailing ```json, ```, etc.
+    # --- Cleanup ---
     raw_text = re.sub(r"^```[a-zA-Z]*", "", raw_text)
     raw_text = re.sub(r"```$", "", raw_text).strip()
 
-    # Finds and isolates the outermost JSON object {}
     match = re.search(r"\{.*\}", raw_text, re.DOTALL)
     if match:
         raw_text = match.group(0)
-
-    # --- ROBUSTNESS FIX: Backslash Sanitization (Safe Version) ---
-    # This addresses the original "Invalid \escape" error by ensuring all single backslashes
-    # are correctly escaped for JSON, but it AVOIDS the problematic encode/decode.
-    # It replaces all single backslashes with double backslashes (\\).
-    # This might double-escape some already-escaped characters, but it's the safest general fix.
-    raw_text = raw_text.replace('\\', '\\\\')
-
-    # Due to the aggressive backslash fix, we need to handle potential over-escaping of quotes
-    # in the text content by parsing and immediately re-stringifying the JSON later if it fails.
-    
-    # Clean up cases where the LLM wrapped the JSON in extra quotes after other cleanup
-    raw_text = raw_text.strip()
-    if raw_text.startswith('"') and raw_text.endswith('"'):
-         raw_text = raw_text[1:-1]
-    # ------------------------------------------------------------
 
     try:
         scenes = json.loads(raw_text)

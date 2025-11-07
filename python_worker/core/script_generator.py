@@ -5,6 +5,7 @@ import json
 import fitz
 import docx
 import tiktoken
+from config import client2
 from config import client
 from sentence_transformers import SentenceTransformer
 import numpy as np
@@ -93,94 +94,96 @@ def generate_script(topic_or_text: str, is_notes: bool = False) -> str:
     Generates a lecture-style script using Groq LLM.
     If is_notes=True, it means topic_or_text is summarized extracted content.
     """
-    completion = client.chat.completions.create(
-        model="moonshotai/kimi-k2-instruct-0905", # Change model to one with larger context
+    completion = client2.chat.completions.create(
+        model="gpt-3.5-turbo",  # Change model to one with larger context
         messages=[
             {
                 "role": "user",
                 "content": f"""
-        You are an expert STEM educator, instructional designer, and science communicator.
-        Your task is to write a **lecture-style narration script** that can be directly used
-        to generate a video lesson for students learning math or physics concepts.
+You are an expert STEM educator, instructional designer, and science communicator.
+Your task is to write a **lecture-style narration script** that can be directly used
+to generate a video lesson for students learning math or physics concepts.
 
-        {"The content below is extracted from provided study notes:" if is_notes else ""}
-        {topic_or_text}
+{"The content below is extracted from provided study notes:" if is_notes else ""}
+{topic_or_text}
 
-        Audience:
-        - High school or early college students studying math, physics, or engineering.
-        - They have some familiarity with symbols but need conceptual clarity and motivation.
+Audience:
+- High school or early college students studying math, physics, or engineering.
 
-        Requirements:
-        1. Structure the output as **SLIDES**, each separated with clear headers:
-        SLIDE 1 – TITLE
-        SLIDE 2 – INTRODUCTION
-        SLIDE 3 – CONCEPT / FORMULAS
-        SLIDE 4 – EXAMPLES / APPLICATIONS
-        SLIDE 5 – INTUITION / VISUAL ANALOGY
-        SLIDE 6 – EXTENSIONS / CONNECTIONS
-        SLIDE N – SUMMARY (optional)
-        (You may include as many slides as necessary depending on topic complexity.)
+Requirements:
+1. Structure the output as **SLIDES**, each separated with clear headers:
+   SLIDE 1 – TITLE
+   and similarly for other slides
+   (You may include as many slides as necessary depending on topic complexity.)
 
-        2. For each slide:
-        - Include **narration text** (spoken explanation).
-        - Include **equations or visuals**
-        - Maintain **progressive learning flow**: definition → intuition → derivation → examples → applications.
+2. For each slide:
+   - Include **narration text** (spoken explanation).
+   - Include **equations or visuals**
+   - Maintain **progressive learning flow**: definition → intuition → derivation → examples → applications.
 
-        3. Prioritize **mathematical correctness** and **conceptual intuition**:
-        - Derive key equations step-by-step.
-        - Explain “why” the math works.
-        - Include analogies or physics interpretations when possible (e.g., energy, force, geometry).
+3. Prioritize **mathematical correctness** and **conceptual intuition**:
+   - Derive key equations step-by-step.
+   - Explain “why” the math works.
+   - Include analogies or physics interpretations when possible (e.g., energy, force, geometry).
 
-        4. Make it **educationally engaging**:
-        - Use vivid analogies and smooth transitions between ideas.
-        - Keep tone friendly but precise.
+4. Make it **educationally engaging**:
+   - Use vivid analogies and smooth transitions between ideas. WHile you are explaining the concepts through examples use sentences let us assume
+   - Teach the things as if you are a teacher teaching students this concept.
+   - Keep tone friendly but precise.
 
-        6. Use **credible data and short inline citations** for factual or historical statements
-        (e.g., [Wikipedia, 2025], [NASA data], [Khan Academy]).
+5. **Language clarity rule**:
+   - Use **simple, student-friendly language** throughout the script.
+   - Avoid dense jargon or overly formal phrasing.
+   - However, **do not skip or oversimplify** any crucial topic, equation, or derivation.
+   - Think of how a great teacher explains complex ideas clearly without dumbing them down.
 
-        7. If useful, include **real-world examples**:
-        - e.g., regression in experiments, energy conservation in motion, or probability in random events.
+6. Use **credible data and short inline citations** for factual or historical statements
+   (e.g., [Wikipedia, 2025], [NASA data], [Khan Academy]).
 
-        8. End with a **concise summary** slide recapping the core equations and insights.
+7. If useful, include **real-world examples**:
+   - e.g., regression in experiments, energy conservation in motion, or probability in random events.
 
-        9. The script should begin exactly like this:
-        -------------------------------------------------
-        [LECTURE-NARRATION SCRIPT – {topic_or_text.upper()} FOR MATH/PHYS STUDENTS]
-        -------------------------------------------------
+8. End with a **concise summary** slide recapping the core equations and insights.
 
-        10. The number of slides is **not fixed** — expand naturally as required by the topic.
-            The output should remain structured, logically ordered, and suitable for video generation.
+9. The script should begin exactly like this:
+   -------------------------------------------------
+   [LECTURE-NARRATION SCRIPT – {topic_or_text.upper()} FOR MATH/PHYS STUDENTS]
+   -------------------------------------------------
 
-        Output must begin exactly like this:
-        -------------------------------------------------
-        [LECTURE-NARRATION SCRIPT – {"NOTES-BASED CONTENT" if is_notes else topic_or_text.upper()} FOR MATH/PHYS STUDENTS]
+10. The number of slides is **not fixed** — expand naturally as required by the topic.
+    The output should remain structured, logically ordered, and suitable for video generation.
 
-        SLIDE 1 – TITLE
-        "Title of the Lesson"
+Output must begin exactly like this:
+-------------------------------------------------
+[LECTURE-NARRATION SCRIPT – {"NOTES-BASED CONTENT" if is_notes else topic_or_text.upper()} FOR MATH/PHYS STUDENTS]
 
-        SLIDE 2 – LEARNING GOALS
-        1. Understand ...
-        2. Derive ...
-        3. Visualize ...
+SLIDE 1 – TITLE
+"Title of the Lesson"
 
-        SLIDE 3 – CONCEPT INTRODUCTION
-        Narration: "..."
-        Equation: "..."
+SLIDE 2 – LEARNING GOALS
+1. Understand ...
+2. Derive ...
+3. Visualize ...
 
-        SLIDE 4 – APPLICATION EXAMPLE
-        Narration: "..."
-        Equation: "..."
+SLIDE 3 – CONCEPT INTRODUCTION
+Narration: "..."
+Equation: "..."
 
-        (Continue as needed...)
-        -------------------------------------------------
-        """
+SLIDE 4 – APPLICATION EXAMPLE
+Narration: "..."
+Equation: "..."
+
+(Continue as needed...)
+-------------------------------------------------
+"""
             }
         ],
         temperature=0.7,
-        max_tokens=4000, # Increase max_tokens to allow for a longer script
+        max_tokens=4000,  # Increase max_tokens to allow for a longer script
     )
 
     return completion.choices[0].message.content.strip()
+
     
 
 # ----------------- Input Processing Pipeline -----------------
