@@ -9,4 +9,4 @@ COPY python_worker/ ./python_worker/
 
 # (NO npm install, NO pip install here — already done in base image)
 
-CMD ["node", "src/worker_server.js"]
+CMD ["node", "src/worker.js"]
