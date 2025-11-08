@@ -1,4 +1,4 @@
-FROM anujkshatriya/animed-base:v2
+FROM anujkshatriya/animed-base:v3
 
 WORKDIR /app
 
