@@ -1,0 +1,26 @@
+# --- Base Runtime Layer (NEVER rebuild unless dependencies change) ---
+FROM python:3.10-slim
+
+# Install system-level dependencies only ONCE
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libcairo2-dev libpango1.0-dev libglib2.0-dev libharfbuzz-dev \
+    libfreetype6-dev libfontconfig1-dev libffi-dev libssl-dev \
+    libjpeg62-turbo libpng16-16 \
+    curl build-essential pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js (stable LTS)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs
+
+WORKDIR /base
+
+COPY python_worker/requirements.txt .
+
+RUN pip install --upgrade pip \
+ && pip install --no-cache-dir -r requirements.txt
+
+# Install Node deps (cached layer)
+COPY package*.json .
+RUN npm install --omit=dev

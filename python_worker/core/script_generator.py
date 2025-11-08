@@ -11,7 +11,10 @@ from sentence_transformers import SentenceTransformer
 from config import client2, client, supabase  # ✅ Make sure supabase client is imported from config
 
 # ----------------- Initialize Embedding Model -----------------
-embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+embed_model = SentenceTransformer(
+    "sentence-transformers/all-MiniLM-L6-v2",
+    model_kwargs={"backend": "onnx"}
+)
 
 # ----------------- Chunking -----------------
 def chunk_text(text: str, max_chars: int = 1000) -> list:

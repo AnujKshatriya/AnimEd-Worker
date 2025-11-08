@@ -1,34 +1,12 @@
-FROM python:3.10.11-bullseye
-
-# Install Node.js 22
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs
+# Use the prebuilt base image
+FROM anujkshatriya/animed-base:v1
 
 WORKDIR /app
 
-# Copy Node packages
-COPY package*.json ./
-RUN npm install
-
-# Copy source
+# Copy only your changing code (very fast layer)
 COPY src/ ./src/
 COPY python_worker/ ./python_worker/
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    ffmpeg build-essential pkg-config \
-    libfreetype6-dev libfontconfig1-dev libcairo2-dev \
-    libpango1.0-dev libglib2.0-dev libharfbuzz-dev \
-    libffi-dev libssl-dev zlib1g-dev libjpeg-dev libpng-dev \
-    texlive texlive-latex-extra texlive-fonts-extra texlive-fonts-recommended \
-    dvipng ghostscript
+# (NO npm install, NO pip install here — already done in base image)
 
-# Upgrade pip and install Python dependencies
-RUN pip install --upgrade pip
-RUN pip install -r python_worker/requirements.txt
-
-# Expose port
-EXPOSE 3000
-
-# Entrypoint
 CMD ["node", "src/worker_server.js"]
