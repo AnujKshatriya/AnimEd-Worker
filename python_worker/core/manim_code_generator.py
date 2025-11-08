@@ -128,7 +128,7 @@ def validate_and_save(code, path):
         return False
 
 
-def generate_all_scenes(topic, scenes):
+def generate_all_scenes(scenes, topic):
     """Main driver function with fallback logic."""
     os.makedirs(topic, exist_ok=True)
 
