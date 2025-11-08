@@ -1,12 +1,8 @@
-# Use the prebuilt base image
-FROM anujkshatriya/animed-base:v1
+FROM anujkshatriya/animed-base:v2
 
 WORKDIR /app
 
-# Copy only your changing code (very fast layer)
 COPY src/ ./src/
 COPY python_worker/ ./python_worker/
 
-# (NO npm install, NO pip install here — already done in base image)
-
-CMD ["node", "src/jobs/worker.js"]
+CMD ["node", "src/worker_server.js"]
