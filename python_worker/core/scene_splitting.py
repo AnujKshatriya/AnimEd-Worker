@@ -22,15 +22,13 @@ def split_into_scenes(script: str) -> dict:
             {
                 "role": "user",
                 "content": f"""
-Divide the following narration script into **at most 25 sequential scenes** suitable for animation in an educational video.
+Divide the following narration script into suitable for animation in an educational video.
 
 Guidelines:
-- Each scene should explain one complete concept or step clearly, using 1–3 short sentences.
+- Each scene should explain one complete concept or step clearly and completely don't skip anything from the script.
 - Maintain logical and educational flow — the narration should feel continuous, not like isolated facts.
-- Merge related points if necessary so that the total number of scenes does not exceed 25.
 - Ensure that transitions between scenes sound natural and build upon each other.
-- Cover all important points from the provided script.
-- Assume total video length ≈ 300 seconds (≈10–12 sec per scene).
+- Cover all points from the provided script.
 - The goal is to make students understand the topic smoothly from start to end.
 
 Return ONLY valid JSON in this format:
@@ -47,7 +45,7 @@ Return ONLY valid JSON in this format:
   ]
 }}
 
-Inside scenes field there is id and text field, for the text field don't write scene x or slide no y, directly write the text.
+Inside scenes field there is id and text field, for the text field don't write scene x or slide no y, directly write the text. Don't skip any part of the script
 
 Full Script:
 {script}
