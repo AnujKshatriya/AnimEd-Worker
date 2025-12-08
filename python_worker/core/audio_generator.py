@@ -1,12 +1,14 @@
 import os
 from gtts import gTTS
 from pydub import AudioSegment
+import re
 
 def generate_audio(scenes : str, job_dir : str):
 
 
     speed = 1
     slow_mode = False  # Set True for gTTS's slower pronunciation mode
+    topic = re.sub(r"[^A-Za-z0-9_-]+", "_", topic)
 
     # Create folder
     os.makedirs(f"{job_dir}/audio", exist_ok=True)

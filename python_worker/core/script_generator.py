@@ -110,10 +110,7 @@ def summarize_if_needed(text: str, max_tokens: int = 8000) -> str:
 
 # ----------------- Script Generation -----------------
 def generate_script(topic_or_text: str, is_notes: bool = False) -> str:
-    """
-    Generates a lecture-style script using Groq LLM.
-    If is_notes=True, it means topic_or_text is summarized extracted content.
-    """
+
     completion = client2.chat.completions.create(
         model="gpt-3.5-turbo",  # Change model to one with larger context
         messages=[
@@ -129,10 +126,11 @@ to generate a video lesson for students learning math or physics concepts.
 
 Audience:
 - High school or early college students studying math, physics, or engineering.
+- Explain in complete detail whatever the topic is mentioed, you should be able to make STRICTLY atleast 20 slides in total.
+- More than that is also fine. Also each slide should be sufficiently big, it shouldn't be only title.
 
 Requirements:
-1. Structure the output as **SLIDES**, each separated with clear headers:
-   SLIDE 1 – TITLE
+1. Structure the output as **SLIDES**, each separated with clear headers
    and similarly for other slides
    (You may include as many slides as necessary depending on topic complexity.)
 
@@ -153,9 +151,9 @@ Requirements:
 
 5. **Language clarity rule**:
    - Use **simple, student-friendly language** throughout the script.
-   - Avoid dense jargon or overly formal phrasing.
    - However, **do not skip or oversimplify** any crucial topic, equation, or derivation.
    - Think of how a great teacher explains complex ideas clearly without dumbing them down.
+   - Explain things in such a way where we can give visual examples as students understand better if given some visual examples.
 
 6. Use **credible data and short inline citations** for factual or historical statements
    (e.g., [Wikipedia, 2025], [NASA data], [Khan Academy]).
@@ -165,35 +163,28 @@ Requirements:
 
 8. End with a **concise summary** slide recapping the core equations and insights.
 
-9. The script should begin exactly like this:
-   -------------------------------------------------
-   [LECTURE-NARRATION SCRIPT – {topic_or_text.upper()} FOR MATH/PHYS STUDENTS]
-   -------------------------------------------------
-
-10. The number of slides is **not fixed** — expand naturally as required by the topic.
+9. The number of slides is **not fixed** — expand naturally as required by the topic.
     The output should remain structured, logically ordered, and suitable for video generation.
 
-Output must begin exactly like this:
--------------------------------------------------
-[LECTURE-NARRATION SCRIPT – {"NOTES-BASED CONTENT" if is_notes else topic_or_text.upper()} FOR MATH/PHYS STUDENTS]
 
-SLIDE 1 – TITLE
-"Title of the Lesson"
+Return ONLY valid JSON in this format:
+{{
+  "scenes": [
+    {{
+      "id": 1,
+      "text": "Scene 1 narration...",
+      "visualization/equation: A suitable visualization/equation or both for the given text. If it is a equation right it directly for visualization give the idea that this can be made.
+    }},
+    {{
+      "id": 2,
+      "text": "Scene 2 narration...",
+      "visualization/equation: A suitable visualization/equation or both for the given text. If it is a equation right it directly for visualization give the idea that this can be made.
+    }},
+    (Continue as needed... and give the complete script)
+  ]
+}}
 
-SLIDE 2 – LEARNING GOALS
-1. Understand ...
-2. Derive ...
-3. Visualize ...
 
-SLIDE 3 – CONCEPT INTRODUCTION
-Narration: "..."
-Equation: "..."
-
-SLIDE 4 – APPLICATION EXAMPLE
-Narration: "..."
-Equation: "..."
-
-(Continue as needed...)
 -------------------------------------------------
 """
             }
