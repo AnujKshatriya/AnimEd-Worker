@@ -253,6 +253,20 @@ export const worker = new Worker(
               console.log(`🧹 Cleaned up output folder for video ${videoId}`);
             }
           } 
+          else {
+              // ❌ Update status → failed
+              await supabase
+                .from("videos")
+                .update({
+                  status: "failed",
+                  logs,
+                  updated_at: new Date(),
+                })
+                .eq("id", videoId);
+
+              console.error(`❌ Job ${videoId} failed`);
+              reject(new Error(`Worker failed with exit code ${code}`));
+            }
         }
         catch (cleanupErr) {
             console.error("Cleanup error:", cleanupErr);
