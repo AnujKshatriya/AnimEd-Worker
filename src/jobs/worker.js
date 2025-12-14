@@ -5,6 +5,7 @@ import axios from "axios";
 import path from "path";
 import { supabase } from "../config/supabase.js";
 import { redisConnection } from "../config/redis.js";
+import { sendVideoReadyEmail } from "../emails/sendVideoReady.js";
 
 // Utility to download any file to local outputDir
 async function downloadFile(fileUrl, destPath) {
@@ -140,56 +141,6 @@ export const worker = new Worker(
             }
 
             if (finalScriptPath && fs.existsSync(finalScriptPath)) {
-              // console.log(`📤 Uploading final script: ${finalScriptPath}`);
-              // const fileBuffer = fs.readFileSync(finalScriptPath);
-              // const supabaseScriptPath = `scripts/${videoId}.txt`;
-
-              // const { error: scriptError } = await supabase.storage
-              //   .from("scripts")
-              //   .upload(supabaseScriptPath, fileBuffer, {
-              //     upsert: true,
-              //     contentType: "text/plain",
-              //   });
-
-              // if (scriptError) {
-              //   console.error("❌ Error uploading script:", scriptError.message);
-              // } else {
-              //   const { data: { publicUrl } } = supabase.storage
-              //     .from("scripts")
-              //     .getPublicUrl(supabaseScriptPath);
-              //   scriptUrl = publicUrl;
-              //   console.log(`✅ Uploaded script: ${scriptUrl}`);
-              // }
-
-              // // ✅ Upload embedding if exists
-              // const embeddingPath = path.join(outputDir, "script_embedding.json");
-              // if (fs.existsSync(embeddingPath)) {
-              //   console.log(`📤 Uploading embedding file: ${embeddingPath}`);
-              //   const embeddingBuffer = fs.readFileSync(embeddingPath);
-              //   const supabaseEmbeddingPath = `embeddings/${videoId}.json`;
-
-              //   // 🧠 Read embedding and store it as a vector in database
-              //   const embeddingData = JSON.parse(fs.readFileSync(embeddingPath, "utf-8"));
-
-              //   if (Array.isArray(embeddingData)) {
-              //     console.log("🧩 Storing embedding vector in database...");
-
-              //     const { error: embedError } = await supabase
-              //       .from("videos") // or "video_embeddings"
-              //       .update({ embedding: embeddingData }) // direct numeric array
-              //       .eq("id", videoId);
-
-              //     if (embedError) {
-              //       console.error("❌ Error inserting embedding vector:", embedError);
-              //     } else {
-              //       console.log("✅ Embedding vector stored successfully in DB.");
-              //     }
-              //   } else {
-              //     console.warn("⚠️ Invalid embedding format — expected numeric array.");
-              //   }
-
-              // }
-
 
               await supabase
                 .from("videos")
@@ -207,6 +158,33 @@ export const worker = new Worker(
                 .select("video_ids")
                 .eq("user_id", user_id)
                 .single();
+
+              // 1. Fetch auth user (source of truth)
+              const { data: authData, error: authError } =
+                await supabase.auth.admin.getUserById(user_id);
+
+              if (authError || !authData?.user?.email) {
+                console.error("❌ Cannot send email, auth user missing:", authError);
+              } 
+              else {
+                const email = authData.user.email;
+                const name = authData.user.user_metadata?.name || email ;
+
+                console.log("📧 Sending email to:", email);
+                console.log("👤 User name:", name);
+
+                try {
+                  await sendVideoReadyEmail({
+                    to: email,
+                    name,
+                    topic: topic || "your topic",
+                    videoUrl: `https://animed.live/dashboard/video/${videoId}`,
+                  });
+                  console.log("✅ Video-ready email sent successfully");
+                } catch (emailErr) {
+                  console.error("❌ Email send failed:", emailErr);
+                }
+              }
 
               if (fetchError && fetchError.code !== "PGRST116") {
                 console.error("❌ Error fetching user_videos:", fetchError);
