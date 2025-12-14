@@ -178,7 +178,7 @@ export const worker = new Worker(
                     to: email,
                     name,
                     topic: topic || "your topic",
-                    videoUrl: `https://animed.live/dashboard/video/${videoId}`,
+                    videoUrl: `https://animed.live/video/${videoId}`,
                   });
                   console.log("✅ Video-ready email sent successfully");
                 } catch (emailErr) {
